@@ -18,9 +18,9 @@ BOOST_AUTO_TEST_CASE(lambda_test)
 
 BOOST_AUTO_TEST_CASE(lambda_capture_test)
 {
-    int x;
+    int x = -100;
     auto add_lambda = [&x](int a, int b, int c) -> int {
-        return a + b + c;
+        return a + b + c + x;
     };
 
     auto curried_add = curry_function(add_lambda);

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.27)
 project(curry_function)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 add_library(curry_function INTERFACE curry_function.hpp)
 
