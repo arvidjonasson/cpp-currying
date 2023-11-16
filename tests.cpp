@@ -49,3 +49,22 @@ BOOST_AUTO_TEST_CASE(function_test)
     BOOST_CHECK_EQUAL(curried_add(10)(11, 12), 10 + 11 + 12);
     BOOST_CHECK_EQUAL(curried_add(10, 11, 12), 10 + 11 + 12);
 }
+
+BOOST_AUTO_TEST_CASE(reference_test)
+{
+    auto setter = [](int &set, int val) {
+        set = val;
+    };
+
+    int x = 5;
+
+    auto curried_add = curry_function(setter);
+
+    auto f = curried_add(x);
+
+    BOOST_CHECK_EQUAL(x, 5);
+    f(10);
+    BOOST_CHECK_EQUAL(x, 10);
+    f(20);
+    BOOST_CHECK_EQUAL(x, 20);
+}
