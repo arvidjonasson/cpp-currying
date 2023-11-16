@@ -10,16 +10,16 @@ target_include_directories(curry_function INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 find_package(Boost REQUIRED COMPONENTS unit_test_framework)
 add_executable(tests tests.cpp)
 
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(tests PRIVATE
             -Wall -Wextra -Werror
             -Weffc++ -Wpedantic -Wconversion -Wshadow -Wfloat-equal -Woverloaded-virtual -Wunreachable-code
     )
-endif()
+endif ()
 
-if(MSVC)
+if (MSVC)
     target_compile_options(tests PRIVATE /W4 /WX)
-endif()
+endif ()
 
 target_link_libraries(tests Boost::unit_test_framework)
 target_include_directories(tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
