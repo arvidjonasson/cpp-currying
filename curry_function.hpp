@@ -23,6 +23,7 @@ template <std::size_t... I>
     requires(sizeof...(I) <= sizeof...(Args))
 class CurryingFunction<R, Args...>::Currying {
 
+    // Create a tuple with the same types as func's args
     using TupleType = std::tuple<std::tuple_element_t<I, std::tuple<Args...>>...>;
 
     std::function<R(Args...)> func;
@@ -41,12 +42,12 @@ public:
     }
 
     template <typename... U>
-    auto operator()(U&&... rest) -> decltype(auto)
+    auto operator()(U&&... rest) const -> decltype(auto)
     {
         constexpr auto new_num_of_args = sizeof...(I) + sizeof...(U);
         static_assert(new_num_of_args <= tot_num_of_args, "Too many arguments passed to function");
 
-        auto new_tuple_args = std::tuple_cat(tuple_args, std::forward_as_tuple(rest...));
+        auto new_tuple_args = std::tuple_cat(tuple_args, std::forward_as_tuple(std::forward<U>(rest)...));
 
         if constexpr (new_num_of_args == tot_num_of_args) {
             return (call_func(std::move(new_tuple_args)));
@@ -55,30 +56,30 @@ public:
         }
     }
 
-    static auto arg_count() noexcept
+    static constexpr auto arg_count() noexcept
     {
         return tot_num_of_args;
     }
 
-    static auto args_filled() noexcept
+    static constexpr auto args_filled() noexcept
     {
         return cur_num_of_args;
     }
 
-    static auto args_left() noexcept
+    static constexpr auto args_left() noexcept
     {
         return arg_count() - args_filled();
     }
 
 private:
     template <typename U>
-    auto call_func(U&& args) -> decltype(auto)
+    auto call_func(U&& args) const -> decltype(auto)
     {
         return (std::apply(func, std::forward<U>(args)));
     }
 
     template <typename U, std::size_t... Idx>
-    auto apply_arguments(U&& args, std::index_sequence<Idx...> /*unused*/) -> decltype(auto)
+    auto apply_arguments(U&& args, std::index_sequence<Idx...> /*unused*/) const -> decltype(auto)
     {
         using NewCurryingType = Currying<Idx...>;
         return (NewCurryingType(func, std::get<Idx>(std::forward<U>(args))...));
