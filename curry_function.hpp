@@ -47,12 +47,10 @@ public:
         constexpr auto new_num_of_args = sizeof...(I) + sizeof...(U);
         static_assert(new_num_of_args <= tot_num_of_args, "Too many arguments passed to function");
 
-        auto new_tuple_args = std::tuple_cat(tuple_args, std::forward_as_tuple(std::forward<U>(rest)...));
-
         if constexpr (new_num_of_args == tot_num_of_args) {
-            return (call_func(std::move(new_tuple_args)));
+            return (func(std::get<I>(tuple_args)..., std::forward<U>(rest)...));
         } else {
-            return (apply_arguments(std::move(new_tuple_args), std::make_index_sequence<new_num_of_args> {}));
+            return (apply_arguments(std::make_index_sequence<new_num_of_args> {}, std::get<I>(tuple_args)..., std::forward<U>(rest)...));
         }
     }
 
@@ -72,17 +70,11 @@ public:
     }
 
 private:
-    template <typename U>
-    auto call_func(U&& args) const -> decltype(auto)
-    {
-        return (std::apply(func, std::forward<U>(args)));
-    }
-
-    template <typename U, std::size_t... Idx>
-    auto apply_arguments(U&& args, std::index_sequence<Idx...> /*unused*/) const -> decltype(auto)
+    template <typename... U, std::size_t... Idx>
+    auto apply_arguments(std::index_sequence<Idx...> /*unused*/, U&&... args) const -> decltype(auto)
     {
         using NewCurryingType = Currying<Idx...>;
-        return (NewCurryingType(func, std::get<Idx>(std::forward<U>(args))...));
+        return (NewCurryingType(func, std::forward<U>(args)...));
     }
 };
 
