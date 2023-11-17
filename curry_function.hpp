@@ -7,6 +7,71 @@
 #include <utility>
 
 namespace currying {
+
+template <typename R, typename... Args>
+struct CurryingFunction {
+    template<typename... T>
+    class Currying;
+
+    // Solely used to deduce template types
+    explicit CurryingFunction(const std::function<R(Args...)> &/*unused*/){}
+};
+
+template <typename R, typename... Args>
+template <typename... T>
+class CurryingFunction<R, Args...>::Currying {
+    std::function<R(Args...)> func;
+    std::tuple<T...> tuple_args;
+
+    static constexpr auto TOT_NUM_OF_ARGS = sizeof...(Args);
+    static constexpr auto CUR_NUM_OF_ARGS = sizeof...(T);
+public:
+    Currying() = delete;
+    template<typename U>
+    explicit Currying(U &&func, T &&...args) : func(std::forward<U>(func)), tuple_args(std::forward_as_tuple(args...)) {}
+
+    template<typename... U>
+    auto operator()(U &&...rest) -> decltype(auto)
+    {
+        constexpr auto NEW_NUM_OF_ARGS = sizeof...(T) + sizeof...(U);
+        static_assert(NEW_NUM_OF_ARGS <= TOT_NUM_OF_ARGS, "Too many arguments passed to function");
+
+        auto new_tuple_args = std::tuple_cat(tuple_args, std::forward_as_tuple(rest...));
+
+        if constexpr (NEW_NUM_OF_ARGS == TOT_NUM_OF_ARGS) {
+            return (call_func(new_tuple_args));
+        } else {
+            return (apply_arguments(std::move(new_tuple_args), std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(new_tuple_args)>>>{}));
+        }
+    }
+
+private:
+    template<typename U>
+    auto call_func(U &&args) -> decltype(auto) {
+        return (std::apply(func, std::forward<U>(args)));
+    }
+
+    template<typename U, std::size_t ...I>
+    auto apply_arguments(U &&args, std::index_sequence<I...> /*unused*/) -> decltype(auto) {
+        using NewCurryingType = Currying<std::tuple_element_t<I, U>...>;
+        return (NewCurryingType(func, std::get<I>(std::forward<U>(args))...));
+    }
+};
+
+template<typename T>
+auto make_currying(T &&func_arg)
+{
+    // Convert to std::function
+    auto func = std::function{ std::forward<T>(func_arg) };
+
+    // Deduce correct types for Currying and CurryingFunction
+    using CurryingFunctionType = decltype(CurryingFunction(func));
+    using CurryingType = typename CurryingFunctionType::template Currying<>;
+
+    // Construct object
+    return CurryingType(std::move(func));
+}
+
 const inline auto curry_function = [](auto&& func) -> decltype(auto) {
     // Helper functions
     auto apply_tuple = []<std::size_t... I>(
