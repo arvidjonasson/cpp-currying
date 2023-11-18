@@ -12,7 +12,7 @@ The `Currying` class is a C++ template designed to implement the functional prog
 
 ## Requirements
 
-- C++17 or later (for `requires`, `constexpr if`, and other modern C++ features).
+- C++20 or later (for `requires`, `constexpr if`, and other modern C++ features).
 
 ## Usage
 
