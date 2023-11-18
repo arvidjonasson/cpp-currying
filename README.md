@@ -40,28 +40,28 @@ In this example, `curriedAdd` is a curried version of the `add` function with th
 
 You can control the ownership of the arguments:
 
-- `own_arguments`: The `Currying` class takes ownership of the arguments.
-- `reference_arguments`: The `Currying` class does not take ownership of the arguments.
+- `ownArguments`: The `Currying` class takes ownership of the arguments.
+- `referenceArguments`: The `Currying` class does not take ownership of the arguments.
 
 ```cpp
-auto curriedFunction = currying::Currying(add, currying::reference_arguments, 5);
+auto curriedFunction = currying::Currying(add, currying::referenceArguments, 5);
 ```
 ## API Reference
 
 ### Constructors
 
-- `Currying(FunctionType&& func, ArgOwnership<B> ownership, Args&&... args)`: Constructs a `Currying` object with the given function, ownership control, and arguments.
+- `Currying(FunctionType&& function, ArgOwnership<B> ownership, Args&&... arguments)`: Constructs a `Currying` object with the given function, ownership control, and arguments.
 
 ### Member Functions
 
 - `operator()(Args&&... args) &`: Invokes the curried function with additional arguments for an lvalue `Currying` object.
 - `operator()(Args&&... args) &&`: Invokes the curried function with additional arguments for an rvalue `Currying` object.
-- `get_func() const`: Returns the internal function.
-- `get_args() const`: Returns the internally stored arguments.
+- `getFunction() const`: Returns the internal function.
+- `getArguments() const`: Returns the internally stored arguments.
 
 ### Static Member Functions
 
-- `arg_count() noexcept`: Returns the total number of arguments expected by the function.
-- `args_filled() noexcept`: Returns the number of arguments already provided.
-- `args_left() noexcept`: Returns the number of arguments still required.
+- `argCount() noexcept`: Returns the total number of arguments expected by the function.
+- `argsFilled() noexcept`: Returns the number of arguments already provided.
+- `argsLeft() noexcept`: Returns the number of arguments still required.
 

@@ -7,104 +7,107 @@
 #include <type_traits>
 #include <utility>
 
-namespace currying {
+namespace currying::v1 {
 
-template <bool>
+template <bool Owns>
 struct ArgOwnership { };
 
 using OwnArguments = ArgOwnership<true>;
 using ReferenceArguments = ArgOwnership<false>;
 
-inline constexpr auto own_arguments = OwnArguments {};
-inline constexpr auto reference_arguments = ReferenceArguments {};
+inline constexpr auto ownArguments = OwnArguments {};
+inline constexpr auto referenceArguments = ReferenceArguments {};
 
-template <bool, typename, typename, typename...>
+template <bool Owns, typename FuncType, typename IndexSeq, typename... Args>
 class Currying; /* undefined */
 
+// Concept to ensure the arity of function matches with provided arguments
+template <auto NumTupArgs, auto NumIndicies, auto NumArgs>
+concept ValidCurrying = requires {
+    {
+        NumTupArgs
+    } -> std::convertible_to<std::size_t>;
+    {
+        NumIndicies
+    } -> std::convertible_to<std::size_t>;
+    {
+        NumArgs
+    } -> std::convertible_to<std::size_t>;
+
+    NumIndicies == NumTupArgs;
+    NumTupArgs <= NumArgs;
+};
+
 template <bool take_ownership, typename... TupArgs, std::size_t... I, typename R, typename... Args>
-requires(sizeof...(I) == sizeof...(TupArgs) && sizeof...(TupArgs) <= sizeof...(Args))
+    requires ValidCurrying<sizeof...(TupArgs), sizeof...(I), sizeof...(Args)>
 class Currying<take_ownership, std::function<R(Args...)>, std::index_sequence<I...>, TupArgs...> {
 public:
     using FunctionType = std::function<R(Args...)>;
-    using ArgsTupleType = std::conditional_t<
+    using ArgumentsTupleType = std::conditional_t<
         take_ownership,
         std::tuple<std::decay_t<TupArgs>...>,
         std::tuple<TupArgs...>>;
 
 private:
-    FunctionType func;
-    ArgsTupleType args_tuple;
+    FunctionType function;
+    ArgumentsTupleType argumentsTuple;
 
-    static constexpr auto tot_num_of_args = sizeof...(Args);
-    static constexpr auto cur_num_of_args = sizeof...(I);
+    static constexpr std::size_t totalNumOfArgs = sizeof...(Args);
+    static constexpr std::size_t currentNumOfArgs = sizeof...(I);
 
 public:
     Currying() = delete;
     template <typename T, bool B = true, typename... U>
-    explicit Currying(T&& func, ArgOwnership<B> /*unused*/ = ArgOwnership<B> {}, U&&... args)
-        : func(std::forward<T>(func))
-        , args_tuple(std::forward<U>(args)...)
+    explicit Currying(T&& function, ArgOwnership<B> /* ownership */ = ArgOwnership<B> {}, U&&... arguments)
+        : function(std::forward<T>(function))
+        , argumentsTuple(std::forward<U>(arguments)...)
     {
     }
 
-private:
-    template <typename... T>
-    auto call_func(T&&... args) const -> decltype(auto)
-    {
-        constexpr auto new_num_of_args = sizeof...(T);
-        static_assert(new_num_of_args <= tot_num_of_args, "Too many arguments passed to function");
-
-        if constexpr (new_num_of_args == tot_num_of_args) {
-            return func(std::forward<T>(args)...);
-        } else {
-            return currying::Currying(func, ArgOwnership<take_ownership> {}, std::forward<T>(args)...);
-        }
-    }
-
-public:
+    // Call operator for lvalue references
     template <typename... U>
     auto operator()(U&&... rest) & -> decltype(auto)
     {
-        return call_func(std::get<I>(args_tuple)..., std::forward<U>(rest)...);
+        return callFunction(std::get<I>(argumentsTuple)..., std::forward<U>(rest)...);
     }
 
+    // Call operator for rvalue references
     template <typename... U>
     auto operator()(U&&... rest) && -> decltype(auto)
     {
-        return call_func(std::move(std::get<I>(args_tuple))..., std::forward<U>(rest)...);
+        return callFunction(std::move(std::get<I>(argumentsTuple))..., std::forward<U>(rest)...);
     }
 
-    auto get_func() const
-    {
-        return func;
-    }
+    // Getters for function and arguments
+    auto getFunction() const noexcept -> const FunctionType& { return function; }
+    auto getArguments() const noexcept -> const ArgumentsTupleType& { return argumentsTuple; }
 
-    auto get_args() const
-    {
-        return args_tuple;
-    }
+    // Static members for argument count information
+    static constexpr auto argCount() noexcept -> std::size_t { return totalNumOfArgs; }
+    static constexpr auto argsFilled() noexcept -> std::size_t { return currentNumOfArgs; }
+    static constexpr auto argsLeft() noexcept -> std::size_t { return argCount() - argsFilled(); }
 
-    static constexpr auto arg_count() noexcept
+private:
+    // Helper function to call the function or create new Currying class
+    template <typename... T>
+    auto callFunction(T&&... arguments) const -> decltype(auto)
     {
-        return tot_num_of_args;
-    }
+        constexpr auto newNumOfArgs = sizeof...(T);
+        static_assert(newNumOfArgs <= totalNumOfArgs, "Too many arguments passed to function");
 
-    static constexpr auto args_filled() noexcept
-    {
-        return cur_num_of_args;
-    }
-
-    static constexpr auto args_left() noexcept
-    {
-        return arg_count() - args_filled();
+        if constexpr (newNumOfArgs == totalNumOfArgs) {
+            return function(std::forward<T>(arguments)...);
+        } else {
+            return v1::Currying(function, ArgOwnership<take_ownership> {}, std::forward<T>(arguments)...);
+        }
     }
 };
 
 template <typename T, bool B = true, typename... U>
-Currying(T&& func, ArgOwnership<B> = ArgOwnership<B> {}, U&&... args)
-    -> Currying<B, decltype(std::function { std::forward<T>(func) }), std::make_index_sequence<sizeof...(U)>,
-std::conditional_t<B, std::decay_t<decltype(std::forward<U>(args))>, decltype(std::forward<U>(args))>...>;
+Currying(T&& function, ArgOwnership<B>, U&&... arguments)
+    -> Currying<B, decltype(std::function { std::forward<T>(function) }), std::make_index_sequence<sizeof...(U)>,
+        std::conditional_t<B, std::decay_t<decltype(std::forward<U>(arguments))>, decltype(std::forward<U>(arguments))>...>;
 
-} // namespace currying
+} // namespace currying::v1
 
 #endif // CURRY_FUNCTION_HPP
