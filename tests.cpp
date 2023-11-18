@@ -1,79 +1,96 @@
-#define BOOST_TEST_MODULE CurryTest
+#define BOOST_TEST_MODULE CurryingTest
+#include <boost/test/unit_test.hpp>
 #include "curry_function.hpp"
-#include <boost/test/included/unit_test.hpp>
 
-BOOST_AUTO_TEST_CASE(lambda_test)
-{
-    auto add_lambda = [](int a, int b, int c) -> int { return a + b + c; };
-
-    auto curried_add = currying::make_currying(add_lambda);
-
-    BOOST_CHECK_EQUAL(curried_add(10)(11)(12), 10 + 11 + 12);
-    BOOST_CHECK_EQUAL(curried_add(10, 11)(12), 10 + 11 + 12);
-    BOOST_CHECK_EQUAL(curried_add(10)(11, 12), 10 + 11 + 12);
-    BOOST_CHECK_EQUAL(curried_add(10, 11, 12), 10 + 11 + 12);
+int add(int a, int b) {
+    return a + b;
 }
 
-BOOST_AUTO_TEST_CASE(lambda_capture_test)
-{
-    int x = -100;
-    auto add_lambda = [&x](int a, int b, int c) -> int { return a + b + c + x; };
-
-    auto curried_add = currying::make_currying(add_lambda);
-
-    x = 10;
-    BOOST_CHECK_EQUAL(curried_add(10)(11)(12), 10 + 11 + 12 + x);
-    x = 11;
-    BOOST_CHECK_EQUAL(curried_add(10, 11)(12), 10 + 11 + 12 + x);
-    x = 12;
-    BOOST_CHECK_EQUAL(curried_add(10)(11, 12), 10 + 11 + 12 + x);
-    x = 13;
-    BOOST_CHECK_EQUAL(curried_add(10, 11, 12), 10 + 11 + 12 + x);
+int multiply(int a, int b, int c) {
+    return a * b * c;
 }
 
-auto add_function(int a, int b, int c) -> int { return a + b + c; }
+BOOST_AUTO_TEST_SUITE(CurryingTests)
 
-BOOST_AUTO_TEST_CASE(function_test)
-{
-
-    auto curried_add = currying::make_currying(add_function);
-
-    BOOST_CHECK_EQUAL(curried_add(10)(11)(12), 10 + 11 + 12);
-    BOOST_CHECK_EQUAL(curried_add(10, 11)(12), 10 + 11 + 12);
-    BOOST_CHECK_EQUAL(curried_add(10)(11, 12), 10 + 11 + 12);
-    BOOST_CHECK_EQUAL(curried_add(10, 11, 12), 10 + 11 + 12);
+BOOST_AUTO_TEST_CASE(TestBasicCurrying) {
+    auto curriedAdd = currying::Currying(add, currying::own_arguments, 5);
+    BOOST_CHECK_EQUAL(curriedAdd(10), 15); // Should return 15
 }
 
-BOOST_AUTO_TEST_CASE(reference_test)
-{
-    auto setter = [](int& set, int val) { set = val; };
+BOOST_AUTO_TEST_CASE(TestOwnership) {
+    int a = 5, b = 10;
+    auto curriedAddRef = currying::Currying(add, currying::reference_arguments, a);
+    a = 15; // Modify a after currying
+    BOOST_CHECK_EQUAL(curriedAddRef(b), 25); // Should reflect the change in 'a'
 
-    int x = 5;
-
-    auto curried_add = currying::make_currying(setter);
-
-    auto f = curried_add(x);
-
-    BOOST_CHECK_EQUAL(x, 5);
-    f(10);
-    BOOST_CHECK_EQUAL(x, 10);
-    f(20);
-    BOOST_CHECK_EQUAL(x, 20);
+    auto curriedAddOwn = currying::Currying(add, currying::own_arguments, a);
+    a = 20; // Modify a after currying
+    BOOST_CHECK_EQUAL(curriedAddOwn(b), 25); // Should not reflect the change in 'a' (own_arguments)
 }
 
-BOOST_AUTO_TEST_CASE(reference_argument_test)
-{
-    auto curried_add = currying::make_currying(add_function);
-
-    BOOST_CHECK_EQUAL(curried_add(10)(11)(12), 10 + 11 + 12);
-    BOOST_CHECK_EQUAL(curried_add(10, 11)(12), 10 + 11 + 12);
-    BOOST_CHECK_EQUAL(curried_add(10)(11, 12), 10 + 11 + 12);
-    BOOST_CHECK_EQUAL(curried_add(10, 11, 12), 10 + 11 + 12);
-
-    int x = 10;
-
-    auto f = curried_add(x);
-
-    x = 20;
-    BOOST_CHECK_EQUAL(f(0, 0), 10);
+BOOST_AUTO_TEST_CASE(TestFunctionalityWithDifferentArgTypes) {
+    auto curriedMultiply = currying::Currying(multiply, currying::own_arguments, 2);
+    BOOST_CHECK_EQUAL(curriedMultiply(3, 4), 24); // 2 * 3 * 4 = 24
 }
+
+BOOST_AUTO_TEST_CASE(TestReferenceQualifierOverloads) {
+    auto curriedAdd = currying::Currying(add, currying::own_arguments, 5);
+    BOOST_CHECK_EQUAL(std::move(curriedAdd)(10), 15); // Using rvalue overload
+}
+
+BOOST_AUTO_TEST_CASE(TestArgCountFunctions) {
+    auto curriedAdd = currying::Currying(add, currying::own_arguments, 5);
+    BOOST_CHECK_EQUAL(curriedAdd.arg_count(), 2);  // add function takes 2 arguments
+    BOOST_CHECK_EQUAL(curriedAdd.args_filled(), 1); // 1 argument already provided
+    BOOST_CHECK_EQUAL(curriedAdd.args_left(), 1);   // 1 argument left to be provided
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE(CurryingCallableTests)
+
+BOOST_AUTO_TEST_CASE(TestWithNonCapturingLambda) {
+    auto lambda = [](int x, int y) { return x - y; };
+    auto curriedLambda = currying::Currying(lambda, currying::own_arguments, 10);
+    BOOST_CHECK_EQUAL(curriedLambda(5), 5); // 10 - 5 = 5
+}
+
+BOOST_AUTO_TEST_CASE(TestWithCapturingLambda) {
+    int z = 5;
+    auto capturingLambda = [z](int x, int y) { return x * y + z; };
+    auto curriedLambda = currying::Currying(capturingLambda, currying::own_arguments, 3);
+    BOOST_CHECK_EQUAL(curriedLambda(4), 17); // 3 * 4 + 5 = 17
+}
+
+BOOST_AUTO_TEST_CASE(TestWithStdFunction) {
+    std::function<int(int, int)> stdFunc = [](int a, int b) { return a + b; };
+    auto curriedStdFunc = currying::Currying(stdFunc, currying::own_arguments, 7);
+    BOOST_CHECK_EQUAL(curriedStdFunc(8), 15); // 7 + 8 = 15
+}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE(CurryingAdvancedTests)
+
+BOOST_AUTO_TEST_CASE(TestLambdaCapturingByReference) {
+    int capturedValue = 10;
+    auto capturingLambda = [&capturedValue](int x) { return x * capturedValue; };
+    auto curriedLambda = currying::Currying(capturingLambda, currying::own_arguments, 5);
+    capturedValue = 2; // Change the captured variable after currying
+    BOOST_CHECK_EQUAL(curriedLambda(), 10); // 5 * 2 = 10
+}
+
+BOOST_AUTO_TEST_CASE(TestWithNonPrimitiveArguments) {
+    struct CustomType {
+        int value;
+        CustomType(int v) : value(v) {}
+        int multiply(const CustomType& other) const { return value * other.value; }
+    };
+
+    CustomType obj1(3), obj2(4);
+    auto lambda = [](const CustomType& a, const CustomType& b) { return a.multiply(b); };
+    auto curriedLambda = currying::Currying(lambda, currying::own_arguments, obj1);
+    BOOST_CHECK_EQUAL(curriedLambda(obj2), 12); // 3 * 4 = 12
+}
+
+BOOST_AUTO_TEST_SUITE_END()
